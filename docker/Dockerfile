@@ -9,7 +9,7 @@ ENV LANG="en_US.UTF-8" \
 
 # Install necessary packages: curl for HTTP requests and jq for JSON parsing
 RUN microdnf update -y && \
-    microdnf install -y jq sudo && \
+    microdnf install -y jq findutils sudo && \
     microdnf clean all
 
 # Copy the script to the container's filesystem

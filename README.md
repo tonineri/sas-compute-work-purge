@@ -87,10 +87,8 @@ curl -k -X POST "${VIYA_URL}/SASLogon/oauth/clients" \
     "client_id": "'"${CLIENT_ID}"'", 
     "client_secret": "'"${CLIENT_SECRET}"'",
     "authorized_grant_types": "client_credentials",
-    "scope": "uaa.none",
-    "authorities": "uaa.none",
-    "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
-    "refresh_token_validity": "31536000",
+    "scope": ["openid","uaa.none","SASAdministrators"],
+    "authorities": ["uaa.none","SASAdministrators"],
     "access_token_validity": "7200"
   }' | jq
 
@@ -130,8 +128,8 @@ sas-viya plugins install --repo SAS authorization
 sas-viya oauth register-client \
 --id ${CLIENT_ID} \
 --secret ${CLIENT_SECRET} \
---authorities "uaa.none" \
---scope "openid,uaa.none" \
+--authorities "uaa.none,SASAdministrators" \
+--scope "openid,uaa.none,SASAdministrators" \
 --valid-for 7200 \
 --grant-client-credentials
 
@@ -149,19 +147,20 @@ Once the OAuth client is created, encode the `client_id` and `client_secret` in 
 
 ```sh
 # Define the necessary values
+VIYA_NS="<viyaNamespace>"                 # Example: "sas-viya"
 SAS_WORK_HOSTPATH="</host/path/to/mount>" # Example: "/var/mnt/cache"
-# SAS_WORK_PVC="<sasWorkPVCname>"           # IF your SASWORK is PVC-based instead. Example: sas-work-pvc
+# SAS_WORK_PVC="<sasWorkPVCname>"         # IF your SASWORK is PVC-based instead. Example: sas-work-pvc
 CLIENT_ID_ENC=$(echo -n "${CLIENT_ID}" | base64 -w 0)
 CLIENT_SECRET_ENC=$(echo -n "${CLIENT_SECRET}" | base64 -w 0)
 
 # Replace placeholders in the manifest file
-sed -i 's|{{ SAS-VIYA-NS }}|'"${VIYA_NS}"'|g' sas-compute-work-purge/sas-compute-work-purge.yaml
-sed -i 's|{{ SAS-VIYA-URL }}|'"${VIYA_URL}"'|g' sas-compute-work-purge/sas-compute-work-purge.yaml
-sed -i 's|{{ CLIENT-ID }}|'"${CLIENT_ID_ENC}"'|g' sas-compute-work-purge/sas-compute-work-purge.yaml
-sed -i 's|{{ CLIENT-SECRET }}|'"${CLIENT_SECRET_ENC}"'|g' sas-compute-work-purge/sas-compute-work-purge.yaml
-sed -i 's|{{ TIME-LIMIT-HOURS }}|24|g' sas-compute-work-purge/sas-compute-work-purge.yaml
-sed -i 's|{{ SAS-WORK-HOSTPATH }}|'"${SAS_WORK_HOSTPATH}"'|g' sas-compute-work-purge/sas-compute-work-purge.yaml
-# sed -i 's|{{ SAS-WORK-PVC }}|'"${SAS_WORK_PVC}"'|g' sas-compute-work-purge/sas-compute-work-purge.yaml ## IF your SASWORK is PVC-based instead.
+cd sas-compute-work-purge
+sed -i 's|{{ SAS-VIYA-NS }}|'"${VIYA_NS}"'|g' sas-compute-work-purge.yaml
+sed -i 's|{{ CLIENT-ID }}|'"${CLIENT_ID_ENC}"'|g' sas-compute-work-purge.yaml
+sed -i 's|{{ CLIENT-SECRET }}|'"${CLIENT_SECRET_ENC}"'|g' sas-compute-work-purge.yaml
+sed -i 's|{{ TIME-LIMIT-HOURS }}|24|g' sas-compute-work-purge.yaml
+sed -i 's|{{ SAS-WORK-HOSTPATH }}|'"${SAS_WORK_HOSTPATH}"'|g' sas-compute-work-purge.yaml
+# sed -i 's|{{ SAS-WORK-PVC }}|'"${SAS_WORK_PVC}"'|g' sas-compute-work-purge.yaml # IF your SASWORK is PVC-based instead.
 ```
 
 > [!IMPORTANT]
@@ -170,7 +169,7 @@ sed -i 's|{{ SAS-WORK-HOSTPATH }}|'"${SAS_WORK_HOSTPATH}"'|g' sas-compute-work-p
 > [!TIP]
 > If you want to change the default schedule **(hourly)**, you can also replace the cron expression:
 > ```sh
-> sed -i 's|"0 * * * *"|"<yourCron>"|g' sas-compute-work-purge/sas-compute-work-purge.yaml
+> sed -i 's|"0 * * * *"|"<yourCron>"|g' sas-compute-work-purge.yaml
 > ```
 
 ### Step 3: Deploy the Tool
@@ -191,7 +190,7 @@ kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 To check the status of the CronJob and view logs from recent runs:
 
 ```sh
-kubectl get cronjob sas-compute-work-purge -n $VIYA_NS
+kubectl get cronjob sas-compute-work-purge-job -n $VIYA_NS
 kubectl logs --selector=app.kubernetes.io/name=sas-compute-work-purge --namespace=$VIYA_NS
 ```
 
@@ -200,8 +199,8 @@ kubectl logs --selector=app.kubernetes.io/name=sas-compute-work-purge --namespac
 To execute the CronJob manually without waiting for its scheduled run:
 
 ```sh
-kubectl create job --from=cronjob/sas-compute-work-purge sas-compute-work-purge-manual -n $VIYA_NS
-kubectl logs job/sas-compute-work-purge-manual -n $VIYA_NS
+kubectl create job --from=cronjob/sas-compute-work-purge-job sas-compute-work-purge-jobmanual -n $VIYA_NS
+kubectl logs job/sas-compute-work-purge-job-manual -n $VIYA_NS
 ```
 
 ![Divider](/.design/divider.png)

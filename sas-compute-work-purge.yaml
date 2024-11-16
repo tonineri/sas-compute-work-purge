@@ -76,7 +76,6 @@ spec:
   successfulJobsHistoryLimit: 7        # Keeps history of last successful jobs.
   failedJobsHistoryLimit: 7            # Keeps history of last failed jobs.
   suspend: false                       # Ensures the job is not suspended.
-  
   jobTemplate:
     metadata:
       annotations:
