@@ -101,7 +101,7 @@ get_k8s_jobs() {
     # Check number of jobs found
     job_count=$(echo "$jobs" | grep -v '^$' | wc -l)
     if [ "$job_count" -eq 0 ]; then
-        log INFO "No SAS Compute Server jobs found."
+        log INFO "No active SAS Compute Server jobs found."
         return 0  # Exit function early if no jobs are found
     else
         log INFO "Found $job_count SAS Compute Server job(s)."
@@ -209,16 +209,15 @@ delete_zombie_jobs() {
    for server_id in "${all_zombie_ids[@]}"; do 
        job_name="sas-compute-server-${server_id}"
        log INFO "Deleting zombie job: ${job_name}"
-       ##DEBUG##curl --cacert "${K8S_CA_CERT}" -X DELETE "${K8S_API_URL}/apis/batch/v1/namespaces/${NAMESPACE}/jobs/${job_name}" \
+       curl --cacert "${K8S_CA_CERT}" -X DELETE "${K8S_API_URL}/apis/batch/v1/namespaces/${NAMESPACE}/jobs/${job_name}" \
            -H "Authorization: Bearer ${K8S_TOKEN}"
    done 
 }
 
 # Cleanup directories under /sastmp based on active and zombie server IDs.
 cleanup_directories() {
-    # Define the base directory
+    log INFO "Scanning for orphaned work directories to delete..."
     base_dir="/sastmp"
-
     # Loop through the main directories in /sastmp (log, run, spool, tmp)
     for dir1 in "$base_dir"/*; do
         # Check if dir1 is a directory (e.g., /log or /run)
@@ -239,7 +238,7 @@ cleanup_directories() {
                                 # Check if the server_id is NOT in the active_serverIDs array
                                 if [[ ! " ${active_serverIDs[@]} " =~ " ${server_id} " ]]; then
                                     log INFO "Deleting work directory: $server_dir"
-                                    ##DEBUG##rm -rf "$server_dir"
+                                    rm -rf "$server_dir"
                                 else
                                     log INFO "Skipping active session work directory: $server_dir"
                                 fi
