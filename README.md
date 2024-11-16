@@ -18,6 +18,8 @@ This repository contains a Kubernetes CronJob that automates the cleanup of inac
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
   - [Step 1: Create OAuth Client in SAS Viya](#step-1-create-oauth-client-in-sas-viya)
+    - [Method 1: Using the SAS Viya REST API](#method-1-using-the-sas-viya-rest-api)
+    - [Method 2: Using the sas-viya CLI](#method-2-using-the-sas-viya-cli)
   - [Step 2: Define Necessary Parameters](#step-2-define-necessary-parameters)
   - [Step 3: Deploy the Tool](#step-3-deploy-the-tool)
 - [Usage](#usage)
@@ -29,7 +31,7 @@ This repository contains a Kubernetes CronJob that automates the cleanup of inac
 
 ## Overview
 
-The `sas-compute-work-purge` Kubernetes CronJob:
+The `sas-compute-work-purge-job` Kubernetes CronJob:
 
 - Deletes inactive or old SAS Compute sessions using the SAS Compute REST API.
 - Cleans up `saswork` directories associated with old or orphaned sessions.
@@ -44,9 +46,9 @@ Before deploying the SAS Cleanup Tool, ensure you have the following prerequisit
 
 - **Kubernetes Cluster**: A running Kubernetes environment with access to the SAS Viya services.
 - **SAS Viya**: A valid SAS Viya environment (namespace).
-- **hostPath** or **Persistent Volume Claim (PVC)** or : A storage configuration for `/sastmp`, where `saswork` directories are stored. You can choose between a `hostPath` or a PVC.
+- **hostPath** or **Persistent Volume Claim (PVC)**: A storage configuration for `/sastmp`, where `saswork` directories are stored. You can choose between a `hostPath` or a PVC.
 
-> [!IMPORTANT]
+> [!IMPORTANT]  
 > It can be either a `hostPath` or a `persistentVolumeClaim` (PVC). By default, a `hostPath` is used.
 
 ![Divider](/.design/divider.png)
@@ -57,7 +59,7 @@ Before deploying the SAS Cleanup Tool, ensure you have the following prerequisit
 
 To authenticate with SAS Viya, you need to create an OAuth client. Run the following commands to create an OAuth client in your SAS Viya environment.
 
-#### Method 1: Using SAS Viya REST API
+#### Method 1: Using the SAS Viya REST API
 
 ```sh
 # Define necessary variables
@@ -68,14 +70,15 @@ CLIENT_SECRET="<desiredViyaClientSecret>"   # Example: "52a36ea7ed193be4027ee212
 ```
 
 > [!TIP]
-> For your `$CLIENT_SECRET` you can run `openssl rand -hex 32` and use its output to define the value of the `$CLIENT_SECRET` variable. Do not use `CLIENT_SECRET=$(openssl rand -hex 32)` as it will keep creating a new random hex every time you call the variable.
+> For your `$CLIENT_SECRET`, you can run `openssl rand -hex 32` and use its output to define the value of the `$CLIENT_SECRET` variable. Do not use `CLIENT_SECRET=$(openssl rand -hex 32)` as it will keep creating a new random hex every time you call the variable.
 
 ```sh
 # Retrieve the Consul token
 CONSUL_TOKEN=$(kubectl -n $VIYA_NS get secret sas-consul-client -o jsonpath='{.data.CONSUL_TOKEN}' | base64 -d)
 
 # Obtain a Bearer token
-BEARER_TOKEN=$(curl -k -X POST "${VIYA_URL}/SASLogon/oauth/clients/consul?callback=false&serviceId=sas.cli" -H "X-Consul-Token: $CONSUL_TOKEN" | jq -r '.access_token')
+BEARER_TOKEN=$(curl -k -X POST "${VIYA_URL}/SASLogon/oauth/clients/consul?callback=false&serviceId=sas.cli" \
+  -H "X-Consul-Token: $CONSUL_TOKEN" | jq -r '.access_token')
 
 # Create the OAuth client
 curl -k -X POST "${VIYA_URL}/SASLogon/oauth/clients" \
@@ -104,7 +107,7 @@ curl -k -X POST "${VIYA_URL}/authorization/rules" \
   }'
 ```
 
-##### Method 2: Using sas-viya CLI
+#### Method 2: Using the sas-viya CLI
 
 Assuming that the `sas-viya` CLI is already configured:
 
@@ -114,37 +117,36 @@ CLIENT_SECRET="<desiredViyaClientSecret>"   # Example: "52a36ea7ed193be4027ee212
 ```
 
 > [!TIP]
-> For your `$CLIENT_SECRET` you can run `openssl rand -hex 32` and use its output to define the value of the `$CLIENT_SECRET` variable. Do not use `CLIENT_SECRET=$(openssl rand -hex 32)` as it will keep creating a new random hex every time you call the variable.
+> For your `$CLIENT_SECRET`, you can run `openssl rand -hex 32` and use its output to define the value of the `$CLIENT_SECRET` variable. Do not use `CLIENT_SECRET=$(openssl rand -hex 32)` as it will keep creating a new random hex every time you call the variable.
 
 ```sh
 # Login
-sas-viya -k auth login
+sas-viya auth login --insecure
 
 # Install necessary plugins
-sas-viya -k plugins install --repo SAS oauth
-sas-viya -k plugins install --repo SAS authorization
+sas-viya plugins install --repo SAS oauth
+sas-viya plugins install --repo SAS authorization
 
 # Create the OAuth client
-sas-viya -k oauth register client \
+sas-viya oauth register-client \
 --id ${CLIENT_ID} \
 --secret ${CLIENT_SECRET} \
 --authorities "uaa.none" \
 --scope "openid,uaa.none" \
---valid-for "7200" \
---token ${CONSUL_TOKEN} \
+--valid-for 7200 \
 --grant-client-credentials
 
 # Grant necessary permissions
-sas-viya -k authorization create-rule \
+sas-viya authorization create-rule \
 --object-uri "/compute/**" \
 --user "${CLIENT_ID}" \
---permissions "read,update,add,secure,create,delete,remove" \
+--permissions read,update,add,secure,create,delete,remove \
 --description "SAS Compute Work Purge"
 ```
 
 ### Step 2: Define Necessary Parameters
 
-Once the OAuth client is created, encode the `client_id` and `client_secret` in **Base64** and replace placeholders in the `sas-compute-work-purge.yaml` manifest:
+Once the OAuth client is created, encode the `client_id` and `client_secret` in **Base64** and replace placeholders in the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) manifest:
 
 ```sh
 # Define the necessary values
@@ -164,10 +166,10 @@ sed -i 's|{{ SAS-WORK-HOSTPATH }}|'"${SAS_WORK_HOSTPATH}"'|g' sas-compute-work-p
 ```
 
 > [!IMPORTANT]
-> For `persistentVolumeClaim` instead of `hostPath`, make sure you comment the `hostPath` section and uncomment the `persistentVolumeClaim` section of the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) file.
+> For `persistentVolumeClaim` (PVC) instead of `hostPath`, make sure you **comment out** the `hostPath` section and **uncomment** the `persistentVolumeClaim` section of the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) file.
 
 > [!TIP]
-> If you want to change the default schedule (hourly), you can also replace the cron expression:
+> If you want to change the default schedule **(hourly)**, you can also replace the cron expression:
 > ```sh
 > sed -i 's|"0 * * * *"|"<yourCron>"|g' sas-compute-work-purge/sas-compute-work-purge.yaml
 > ```
@@ -190,9 +192,8 @@ kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 To check the status of the CronJob and view logs from recent runs:
 
 ```sh
-# Check CronJob status
 kubectl get cronjob sas-compute-work-purge -n $VIYA_NS
-kubectl logs -l app.kubernetes.io/name=sas-compute-work-purge -n $VIYA_NS
+kubectl logs --selector=app.kubernetes.io/name=sas-compute-work-purge --namespace=$VIYA_NS
 ```
 
 ### Testing
