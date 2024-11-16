@@ -24,8 +24,7 @@ This repository contains a Kubernetes CronJob that automates the cleanup of inac
   - [Step 3: Deploy the Tool](#step-3-deploy-the-tool)
 - [Usage](#usage)
   - [Monitoring](#monitoring)
-  - [Testing](#testing)
-- [License](#license)
+  - [Ad-hoc Execution](#ad-hoc-execution)
 
 ![Divider](/.design/divider.png)
 
@@ -196,9 +195,9 @@ kubectl get cronjob sas-compute-work-purge -n $VIYA_NS
 kubectl logs --selector=app.kubernetes.io/name=sas-compute-work-purge --namespace=$VIYA_NS
 ```
 
-### Testing
+### Ad-hoc Execution
 
-To test the CronJob manually without waiting for its scheduled run:
+To execute the CronJob manually without waiting for its scheduled run:
 
 ```sh
 kubectl create job --from=cronjob/sas-compute-work-purge sas-compute-work-purge-manual -n $VIYA_NS
