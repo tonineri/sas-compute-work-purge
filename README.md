@@ -57,13 +57,20 @@ Before deploying the SAS Cleanup Tool, ensure you have the following prerequisit
 
 To authenticate with SAS Viya, you need to create an OAuth client. Run the following commands to create an OAuth client in your SAS Viya environment.
 
+#### Method 1: Using SAS Viya REST API
+
 ```sh
 # Define necessary variables
-VIYA_NS="<viyaNamespace>"             # Example: "sas-viya"
-VIYA_URL="<viyaUrl>"                  # Example: "https://sasviya.domain.com"
-CLIENT_ID="<desiredViyaClientId>"     # Example: "sascleanup"
-CLIENT_SECRET="<desiredViyaClientSecret>"  # Example: Output from "openssl rand -hex 32"
+VIYA_NS="<viyaNamespace>"                   # Example: "sas-viya"
+VIYA_URL="<viyaUrl>"                        # Example: "https://sasviya.domain.com"
+CLIENT_ID="<desiredViyaClientId>"           # Example: "sas-compute-work-purge"
+CLIENT_SECRET="<desiredViyaClientSecret>"   # Example: "52a36ea7ed193be4027ee212f11b9b3af8..."
+```
 
+> [!TIP]
+> For your `$CLIENT_SECRET` you can run `openssl rand -hex 32` and use its output to define the value of the `$CLIENT_SECRET` variable. Do not use `CLIENT_SECRET=$(openssl rand -hex 32)` as it will keep creating a new random hex every time you call the variable.
+
+```sh
 # Retrieve the Consul token
 CONSUL_TOKEN=$(kubectl -n $VIYA_NS get secret sas-consul-client -o jsonpath='{.data.CONSUL_TOKEN}' | base64 -d)
 
@@ -82,8 +89,57 @@ curl -k -X POST "${VIYA_URL}/SASLogon/oauth/clients" \
     "authorities": "uaa.none",
     "redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
     "refresh_token_validity": "31536000",
-    "access_token_validity": "43200"
+    "access_token_validity": "7200"
   }' | jq
+
+# Grant necessary permissions
+curl -k -X POST "${VIYA_URL}/authorization/rules" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${BEARER_TOKEN}" \
+  -d '{
+    "objectUri": "/compute/sessions/**",
+    "clientId": "'"${CLIENT_ID}"'",
+    "permission": ["read", "write", "execute"],
+    "type": "grant"
+  }'
+```
+
+##### Method 2: Using sas-viya CLI
+
+Assuming that the `sas-viya` CLI is already configured:
+
+```sh
+CLIENT_ID="<desiredViyaClientId>"           # Example: "sas-compute-work-purge"
+CLIENT_SECRET="<desiredViyaClientSecret>"   # Example: "52a36ea7ed193be4027ee212f11b9b3af8..."
+```
+
+> [!TIP]
+> For your `$CLIENT_SECRET` you can run `openssl rand -hex 32` and use its output to define the value of the `$CLIENT_SECRET` variable. Do not use `CLIENT_SECRET=$(openssl rand -hex 32)` as it will keep creating a new random hex every time you call the variable.
+
+```sh
+# Login
+sas-viya -k auth login
+
+# Install necessary plugins
+sas-viya -k plugins install --repo SAS oauth
+sas-viya -k plugins install --repo SAS authorization
+
+# Create the OAuth client
+sas-viya -k oauth register client \
+--id ${CLIENT_ID} \
+--secret ${CLIENT_SECRET} \
+--authorities "uaa.none" \
+--scope "openid,uaa.none" \
+--valid-for "7200" \
+--token ${CONSUL_TOKEN} \
+--grant-client-credentials
+
+# Grant necessary permissions
+sas-viya -k authorization create-rule \
+--object-uri "/compute/**" \
+--user "${CLIENT_ID}" \
+--permissions "read,update,add,secure,create,delete,remove" \
+--description "SAS Compute Work Purge"
 ```
 
 ### Step 2: Define Necessary Parameters
@@ -93,7 +149,7 @@ Once the OAuth client is created, encode the `client_id` and `client_secret` in 
 ```sh
 # Define the necessary values
 SAS_WORK_HOSTPATH="</host/path/to/mount>" # Example: "/var/mnt/cache"
-SAS_WORK_PVC="<sasWorkPVCname>"           # IF your SASWORK is PVC-based instead. Example: sas-work
+# SAS_WORK_PVC="<sasWorkPVCname>"           # IF your SASWORK is PVC-based instead. Example: sas-work-pvc
 CLIENT_ID_ENC=$(echo -n "${CLIENT_ID}" | base64 -w 0)
 CLIENT_SECRET_ENC=$(echo -n "${CLIENT_SECRET}" | base64 -w 0)
 
@@ -111,9 +167,9 @@ sed -i 's|{{ SAS-WORK-HOSTPATH }}|'"${SAS_WORK_HOSTPATH}"'|g' sas-compute-work-p
 > For `persistentVolumeClaim` instead of `hostPath`, make sure you comment the `hostPath` section and uncomment the `persistentVolumeClaim` section of the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) file.
 
 > [!TIP]
-> If you want to change the default schedule (daily at midnight), you can also replace the cron expression:
+> If you want to change the default schedule (hourly), you can also replace the cron expression:
 > ```sh
-> sed -i 's|"0 0 * * *"|"<yourCron>"|g' sas-compute-work-purge/sas-compute-work-purge.yaml
+> sed -i 's|"0 * * * *"|"<yourCron>"|g' sas-compute-work-purge/sas-compute-work-purge.yaml
 > ```
 
 ### Step 3: Deploy the Tool
