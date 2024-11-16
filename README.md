@@ -17,11 +17,12 @@ This repository contains a Kubernetes CronJob that automates the cleanup of inac
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
-  - [Step 1: Create OAuth Client in SAS Viya](#step-1-create-oauth-client-in-sas-viya)
+  - [Step 1: Download the deployment manifest](#step-1-download-the-deployment-manifest)
+  - [Step 2: Create OAuth Client in SAS Viya](#step-2-create-oauth-client-in-sas-viya)
     - [Method 1: Using the SAS Viya REST API](#method-1-using-the-sas-viya-rest-api)
     - [Method 2: Using the sas-viya CLI](#method-2-using-the-sas-viya-cli)
-  - [Step 2: Define Necessary Parameters](#step-2-define-necessary-parameters)
-  - [Step 3: Deploy the Tool](#step-3-deploy-the-tool)
+  - [Step 3: Define Necessary Parameters](#step-3-define-necessary-parameters)
+  - [Step 4: Deploy the Tool](#step-4-deploy-the-tool)
 - [Usage](#usage)
   - [Monitoring](#monitoring)
   - [Ad-hoc Execution](#ad-hoc-execution)
@@ -54,7 +55,15 @@ Before deploying the SAS Cleanup Tool, ensure you have the following prerequisit
 
 ## Setup
 
-### Step 1: Create OAuth Client in SAS Viya
+### Step 1: Download the deployment manifest
+
+Download the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) manifest to your client machine:
+
+```sh
+wget https://raw.githubusercontent.com/tonineri/sas-compute-work-purge/refs/heads/main/sas-compute-work-purge.yaml
+```
+
+### Step 2: Create OAuth Client in SAS Viya
 
 To authenticate with SAS Viya, you need to create an OAuth client. Run the following commands to create an OAuth client in your SAS Viya environment.
 
@@ -141,7 +150,7 @@ sas-viya authorization create-rule \
 --description "SAS Compute Work Purge"
 ```
 
-### Step 2: Define Necessary Parameters
+### Step 3: Define Necessary Parameters
 
 Once the OAuth client is created, encode the `client_id` and `client_secret` in **Base64** and replace placeholders in the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) manifest:
 
@@ -172,12 +181,11 @@ sed -i 's|{{ SAS-WORK-HOSTPATH }}|'"${SAS_WORK_HOSTPATH}"'|g' sas-compute-work-p
 > sed -i 's|"0 * * * *"|"<yourCron>"|g' sas-compute-work-purge.yaml
 > ```
 
-### Step 3: Deploy the Tool
+### Step 4: Deploy the Tool
 
 Deploy the resources by applying the Kubernetes manifest:
 
 ```sh
-cd sas-compute-work-purge
 kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 ```
 
@@ -191,7 +199,7 @@ To check the status of the CronJob and view logs from recent runs:
 
 ```sh
 kubectl get cronjob sas-compute-work-purge-job -n $VIYA_NS
-kubectl logs --selector=app.kubernetes.io/name=sas-compute-work-purge --namespace=$VIYA_NS
+kubectl logs -f $(kubectl get pods --selector=job-name=sas-compute-work-purge-job -o name) -n $VIYA_NS
 ```
 
 ### Ad-hoc Execution
@@ -199,8 +207,8 @@ kubectl logs --selector=app.kubernetes.io/name=sas-compute-work-purge --namespac
 To execute the CronJob manually without waiting for its scheduled run:
 
 ```sh
-kubectl create job --from=cronjob/sas-compute-work-purge-job sas-compute-work-purge-jobmanual -n $VIYA_NS
-kubectl logs job/sas-compute-work-purge-job-manual -n $VIYA_NS
+kubectl create job --from=cronjob/sas-compute-work-purge-job sas-compute-work-purge-job-manual -n $VIYA_NS
+kubectl logs -f $(kubectl get pods --selector=job-name=sas-compute-work-purge-job-manual -o name) -n $VIYA_NS
 ```
 
 ![Divider](/.design/divider.png)
