@@ -1,4 +1,4 @@
----
+# Role for SAS Compute Work Purge
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -19,8 +19,8 @@ rules:
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get"]
-
 ---
+# RoleBinding for SAS Compute Work Purge Role
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -33,14 +33,23 @@ metadata:
     sas.com/deployment: sas-viya
 subjects:
 - kind: ServiceAccount
-  name: sas-programming-environment
+  name: sas-programming-environment   # Ensure this service account exists with proper permissions.
   apiGroup: ""
 roleRef:
   kind: Role
-  name: sas-compute-work-purge-role
+  name: sas-compute-work-purge-role   # Referencing the role defined above.
   apiGroup: rbac.authorization.k8s.io
-
 ---
+##Optionally define the ServiceAccount if it doesn't exist.
+#apiVersion: v1
+#kind: ServiceAccount
+#metadata:
+#  name: sas-programming-environment
+#  namespace: {{ SAS-VIYA-NS }}
+#
+#---
+
+# Secret for storing OAuth credentials securely.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -48,26 +57,26 @@ metadata:
   namespace: {{ SAS-VIYA-NS }}
 type: Opaque
 data:
-  client_id: {{ CLIENT-ID }}
-  client_secret: {{ CLIENT-SECRET }}
-
+  client_id: {{ CLIENT-ID }}           # Ensure this is base64 encoded.
+  client_secret: {{ CLIENT-SECRET }}   # Ensure this is base64 encoded.
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
+  name: sas-compute-work-purge-job
   annotations:
     sas.com/component-name: sas-compute-work-purge
   labels:
     app.kubernetes.io/name: sas-compute-work-purge
     sas.com/admin: namespace
     sas.com/deployment: sas-viya
-    workload.sas.com/class: compute
-  name: sas-compute-work-purge-job
+    workload.sas.com/class: compute    # Ensures this job runs on compute nodes.
 spec:
-  schedule: "0 * * * *"
-  successfulJobsHistoryLimit: 7
-  failedJobsHistoryLimit: 7
-  suspend: false
+  schedule: "0 * * * *"                # Runs every hour.
+  successfulJobsHistoryLimit: 7        # Keeps history of last successful jobs.
+  failedJobsHistoryLimit: 7            # Keeps history of last failed jobs.
+  suspend: false                       # Ensures the job is not suspended.
+  
   jobTemplate:
     metadata:
       annotations:
@@ -76,45 +85,29 @@ spec:
         app.kubernetes.io/name: sas-compute-work-purge
         sas.com/admin: namespace
         sas.com/deployment: sas-viya
-        workload.sas.com/class: compute
     spec:
       template:
         metadata:
           annotations:
             sas.com/component-name: sas-compute-work-purge
-          labels:
-            sas.com/deployment: sas-viya
-            workload.sas.com/class: compute
         spec:
           affinity:
             nodeAffinity:
               preferredDuringSchedulingIgnoredDuringExecution:
               - preference:
                   matchExpressions:
-                  - key: workload.sas.com/class
+                  - key: workload.sas.com/class      # Ensures job runs on compute-class nodes.
                     operator: In
                     values:
-                    - compute
-                  matchFields: []
-                weight: 100
-              - preference:
-                  matchExpressions:
-                  - key: workload.sas.com/class
-                    operator: NotIn
-                    values:
-                    - stateless
-                    - cas
-                    - stateful
-                  matchFields: []
+                    - compute                        # Target compute nodes.
                 weight: 100
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms:
                 - matchExpressions:
-                  - key: kubernetes.azure.com/mode
-                    operator: NotIn
+                  - key: kubernetes.azure.com/mode   # Avoid system nodes in Azure environments (if applicable).
+                    operator: NotIn 
                     values:
                     - system
-                  matchFields: []
           containers:
           - name: sas-compute-work-purge
             image: antonioneri/sas-compute-work-purge:latest
@@ -133,10 +126,8 @@ spec:
                 secretKeyRef:
                   name: sas-compute-work-purge-creds
                   key: client_secret 
-            - name: TIME_LIMIT_HOURS
+            - name: TIME_LIMIT_HOURS                 # The age limit of a SAS Compute Server job. After a job reaches/exceeds the defined time limit, it will be marked for deletion.
               value: "{{ TIME-LIMIT-HOURS }}"
-            - name: SAS_VIYA_NS
-              value: "{{ SAS-VIYA-NS }}"
           restartPolicy: OnFailure
           tolerations:
           - effect: NoSchedule
@@ -147,8 +138,8 @@ spec:
           volumes:
           - name: sas-work-dir
             ## Default to hostPath for /sastmp
-            hostPath:
-              path: {{ SAS-WORK-HOSTPATH }}
+            hostPath:                               # Comment this line if your SASWORK is PVC-based
+              path: {{ SAS-WORK-HOSTPATH }}         # Comment this line if your SASWORK is PVC-based
             ## Optionally use a PVC
-            #persistentVolumeClaim:
-            #  claimName: {{ SAS-WORK-PVC }}
+            #persistentVolumeClaim:                 # Uncomment this line if your SASWORK is PVC-based
+            #  claimName: {{ SAS-WORK-PVC }}        # Uncomment this line if your SASWORK is PVC-based

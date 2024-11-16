@@ -1,7 +1,6 @@
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
-LABEL version="v1.0" \
-      maintainer="Antonio Neri <antoneri@proton.me>" \
+LABEL maintainer="Antonio Neri <antoneri@proton.me>" \
       description="SAS Viya - Compute Work Purge"
 
 # Basic environment variables
