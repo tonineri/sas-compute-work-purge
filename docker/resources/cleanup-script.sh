@@ -111,7 +111,7 @@ get_k8s_jobs() {
     jobs=$(call_api GET "$endpoint" \
         -H "Authorization: Bearer ${K8S_TOKEN}" \
         -H "Accept: application/json" \
-        | jq -r '.items[] | select(.metadata.name | startswith("sas-compute-server-")) | .metadata.name'
+        | jq -r '.items[] | select(.metadata.name | startswith("sas-compute-server-")) | .metadata.name')
     
     # Check if no jobs are found.
     if [ -z "$jobs" ]; then
