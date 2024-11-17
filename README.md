@@ -118,6 +118,7 @@ curl -k -X POST "${VIYA_URL}/authorization/rules" \
 Assuming that the `sas-viya` CLI is already configured:
 
 ```sh
+# Define necessary variables
 CLIENT_ID="<desiredViyaClientId>"           # Example: "sas-compute-work-purge"
 CLIENT_SECRET="<desiredViyaClientSecret>"   # Example: "52a36ea7ed193be4027ee212f11b9b3af8..."
 ```
