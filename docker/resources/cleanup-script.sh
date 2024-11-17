@@ -56,7 +56,7 @@ call_api() {
     shift 2
     local response
 
-    response=$(retry curl -k -s -o /tmp/response.json -w "%{http_code}" -X "$method" "$url" "$@")
+    response=$(retry curl -k -s -o /tmp/response.json -w "%{http_code}" -X "$method" "$endpoint" "$@")
     local http_status=$(tail -n1 <<< "$response")
 
     if [[ "$http_status" -ge 400 ]]; then
