@@ -109,7 +109,7 @@ spec:
                     - system
           containers:
           - name: sas-compute-work-purge
-            image: antonioneri/sas-compute-work-purge:latest
+            image: antonioneri/sas-compute-work-purge:latest # for DEMO MODE (dry-run), use tag `latest-demo`
             imagePullPolicy: Always
             volumeMounts:
             - name: sas-work-dir

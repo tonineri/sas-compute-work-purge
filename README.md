@@ -26,6 +26,7 @@ This repository contains a Kubernetes CronJob that automates the cleanup of inac
 - [Usage](#usage)
   - [Monitoring](#monitoring)
   - [Ad-hoc Execution](#ad-hoc-execution)
+  - [Demo Mode](#demo-mode)
 
 ![Divider](/.design/divider.png)
 
@@ -210,6 +211,22 @@ To execute the CronJob manually without waiting for its scheduled run:
 ```sh
 kubectl create job --from=cronjob/sas-compute-work-purge-job sas-compute-work-purge-job-manual -n $VIYA_NS
 kubectl logs -f $(kubectl get pods --selector=job-name=sas-compute-work-purge-job-manual -o name) -n $VIYA_NS
+```
+
+### Demo Mode
+
+For the CronJob to perform dry-run instead of actually eliminating zombie Kubernetes Jobs or orphaned work directories, update the `image` parameter in the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) with the `latest-demo` tag (example: `image: antonioneri/sas-compute-work-purge:latest-demo`) and apply the manifest.
+
+```sh
+sed -i 's|antonioneri/sas-compute-work-purge:latest|antonioneri/sas-compute-work-purge:latest-demo|g' sas-compute-work-purge.yaml
+kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
+```
+
+To restore proper functionality, switch back to the original tag and apply the manifest:
+
+```sh
+sed -i 's|antonioneri/sas-compute-work-purge:latest-demo|antonioneri/sas-compute-work-purge:latest|g' sas-compute-work-purge.yaml
+kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 ```
 
 ![Divider](/.design/divider.png)
