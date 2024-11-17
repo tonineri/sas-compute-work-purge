@@ -201,8 +201,8 @@ check_session_status() {
     # Check if a session was found.
     if [ -z "$session_id" ]; then
         log INFO "No session found for server ID: [${server_id}]."
-        #zombie_serverIDs+=("$server_id")
-        #return 0
+        zombie_serverIDs+=("$server_id")
+        return 0
     fi
     
     # Query SAS Viya Compute API to get the state of the found session.
