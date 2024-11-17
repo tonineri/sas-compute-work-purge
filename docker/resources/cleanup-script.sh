@@ -240,23 +240,24 @@ check_session_state() {
 
 # Delete zombie jobs.
 delete_zombie_jobs() {
-    local demo=$1  # Accept demo mode as an argument
+    local demo=$1  # DEMO MODE
 
     for server_id in "${zombie_serverIDs[@]}"; do
         local endpoint="${K8S_API_URL}/apis/batch/v1/namespaces/${NAMESPACE}/jobs/sas-compute-server-${server_id}"
 
         if [ "$demo" = true ]; then
-            # In demo mode, just log what would happen
+            # In demo mode, just log what would happen.
             log INFO "Would delete zombie Kubernetes Job: [sas-compute-server-${server_id}] (Demo mode)"
         else
-            # In real mode, perform the actual API call to delete the job
+            # In real mode, perform the actual API call to delete the job.
             log INFO "Deleting zombie Kubernetes Job: [sas-compute-server-${server_id}]"
             
-            # Attempt to delete the job using the API and handle any errors
+            # Attempt to delete the job using the API and handle any errors.
             if call_api DELETE "$endpoint" \
                 -H "Authorization: Bearer ${K8S_TOKEN}" 2> >(error_message=$(cat)); then
                 log INFO "Zombie Kubernetes Job deleted successfully: [sas-compute-server-${server_id}]"
             else
+                # Log the captured error message if deletion fails.
                 log ERROR "Unable to delete zombie Kubernetes Job: [sas-compute-server-${server_id}]. Reason: $error_message"
             fi
         fi
@@ -276,8 +277,10 @@ cleanup_directories() {
         # Check if the directory's name is in the `active_serverIDs` array.
         if [[ ! " ${active_serverIDs[*]} " =~ " $server_id " ]]; then
             if [ "$demo" = true ]; then
+                # In demo mode, just log what would happen.
                 log INFO "DEMO MODE: Would delete orphaned directory: [${dir}]"
             else
+                # In real mode, perform the actual deletion.
                 log INFO "Deleting orphaned directory: [${dir}]"
                 
                 # Attempt to delete the directory and capture any error message directly.
