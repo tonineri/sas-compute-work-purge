@@ -240,26 +240,38 @@ check_session_state() {
 
 # Delete zombie jobs.
 delete_zombie_jobs() {
-    local demo=$1  # DEMO MODE
+    local demo=$1 # DEMO MODE
 
-    for server_id in "${zombie_serverIDs[@]}"; do
-        local endpoint="${K8S_API_URL}/apis/batch/v1/namespaces/${NAMESPACE}/jobs/sas-compute-server-${server_id}"
+    # Iterate over all Kubernetes job names starting with "sas-compute-server-"
+    for job_name in "${jobs[@]}"; do
+        
+        # Extract serverID from the job's spec (this was also done in get_k8s_jobs).
+        local endpoint="${K8S_API_URL}/apis/batch/v1/namespaces/${NAMESPACE}/jobs/${job_name}"
+        server_id=$(call_api GET "$endpoint" \
+            -H "Authorization: Bearer ${K8S_TOKEN}" \
+            -H "Accept: application/json" \
+            | jq -r '.spec.template.spec.containers[0].command | index("-serverID") as $i | .[$i+1]')
 
-        if [ "$demo" = true ]; then
-            # In demo mode, just log what would happen.
-            log INFO "Would delete zombie Kubernetes Job: [sas-compute-server-${server_id}] (Demo mode)"
-        else
-            # In real mode, perform the actual API call to delete the job.
-            log INFO "Deleting zombie Kubernetes Job: [sas-compute-server-${server_id}]"
-            
-            # Attempt to delete the job using the API and handle any errors.
-            if call_api DELETE "$endpoint" \
-                -H "Authorization: Bearer ${K8S_TOKEN}" 2> >(error_message=$(cat)); then
-                log INFO "Zombie Kubernetes Job deleted successfully: [sas-compute-server-${server_id}]"
+        # Check if this `server_id` is in `zombie_serverIDs`.
+        if [[ " ${zombie_serverIDs[*]} " =~ " ${server_id} " ]]; then
+            # If it's a zombie, proceed with deletion.
+            if [ "$demo" = true ]; then
+                # In demo mode, just log what would happen.
+                log INFO "DEMO MODE: Would delete zombie Kubernetes Job: [${job_name}]"
             else
-                # Log the captured error message if deletion fails.
-                log ERROR "Unable to delete zombie Kubernetes Job: [sas-compute-server-${server_id}]. Reason: $error_message"
+                # In real mode, perform the actual API call to delete the job.
+                log INFO "Deleting zombie Kubernetes Job: [${job_name}]"
+
+                # Attempt to delete the job using the API and handle any errors.
+                if call_api DELETE "$endpoint" -H "Authorization: Bearer ${K8S_TOKEN}" 2> >(error_message=$(cat)); then
+                    log INFO "Zombie Kubernetes Job deleted successfully: [${job_name}]"
+                else
+                    # Log the captured error message if deletion fails.
+                    log ERROR "Unable to delete zombie Kubernetes Job: [${job_name}]. Reason: $error_message"
+                fi
             fi
+        else
+            log INFO "Skipping active Kubernetes Job: [${job_name}]"
         fi
     done
 }
