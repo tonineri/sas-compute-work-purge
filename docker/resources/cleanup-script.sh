@@ -314,7 +314,7 @@ cleanup_directories() {
 # Main script execution loop for all contexts in SAS Compute API (internal communication).
 main() {
     
-    local demo=true # DEMO MODE: If `true` it does not delete any Kubernetes Jobs or work directories.
+    local demo=false # DEMO MODE: If `true` it does not delete any Kubernetes Jobs or work directories.
 
     log INFO "Starting cleanup process."
 
