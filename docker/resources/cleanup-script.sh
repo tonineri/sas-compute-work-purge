@@ -127,7 +127,7 @@ get_k8s_jobs() {
 
     # For each job, extract serverID, context, owner, and job start time.
     for job_name in ${jobs}; do
-        log INFO "Processing job: ${job_name}"
+        log INFO "Processing job: [${job_name}]"
 
         # Extract serverID and context from container command directly from job spec.
         server_id=$(curl -k -s "${K8S_API_URL}/apis/batch/v1/namespaces/${NAMESPACE}/jobs/${job_name}" \
@@ -139,6 +139,13 @@ get_k8s_jobs() {
             -H "Authorization: Bearer ${K8S_TOKEN}" \
             -H "Accept: application/json" | jq '.spec.template.spec.containers[0].command | index("-context") as $i | .[$i+1]')
         context=$(echo "$context" | sed 's/^"//;s/"$//' | xargs)
+
+        # Get context's name using its id.
+        context_name=$(curl -k -s "${SAS_COMPUTE_URL}/compute/contexts/${context}" \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Accept: application/json" | jq -r '.name')
+        context_name=$(echo "$context_name" | sed 's/^"//;s/"$//')
+
         # Extract owner from the launcher.sas.com/username label
         owner=$(curl -k -s "${K8S_API_URL}/apis/batch/v1/namespaces/${NAMESPACE}/jobs/${job_name}" \
             -H "Authorization: Bearer ${K8S_TOKEN}" \
@@ -151,7 +158,7 @@ get_k8s_jobs() {
         
         # Check if start_time is valid before proceeding
         if [ -z "$start_time" ] || [ "$start_time" == "null" ]; then
-            log ERROR "Start time not found for job: ${job_name}."
+            log ERROR "Start time not found for job: [${job_name}]."
             exit 1
         else
             # Calculate how many hours ago this job started.
@@ -161,21 +168,22 @@ get_k8s_jobs() {
         
             # Ensure runtime_hours is a valid integer
             if ! [[ "$runtime_hours" =~ ^[0-9]+$ ]]; then
-                log ERROR "Invalid runtime hours calculated for job: ${job_name}. Skipping."
+                log ERROR "Invalid runtime hours calculated for job: [${job_name}]. Skipping."
                 continue  # Skip this job if runtime calculation fails
             fi
         fi
 
-        log INFO "Job: ${job_name}, Server ID: ${server_id}, Context: ${context}, Owner: ${owner}, Runtime: ${runtime_hours} hours"
+        log INFO "Job: [${job_name}], ServerID: [${server_id}], Context: [${context_name}], Owner: [${owner}], Runtime: [${runtime_hours} hours]."
 
         # Check session status via SAS Viya REST API...
-        check_session_status "$server_id"
+        check_session_status "$server_id" "$context_name"
     done
 }
 
 # Function to check session status via SAS Viya REST API by searching for a session ID starting with server_id.
 check_session_status() {
     local server_id=$1
+    local context_name=$2
     local job_name="sas-compute-server-${server_id}"
 
     # Query SAS Viya Compute API to get all sessions and find the one that contains server_id.
@@ -192,7 +200,7 @@ check_session_status() {
 
     # Check if a session was found.
     if [ -z "$session_id" ]; then
-        log INFO "No session found for server ID: ${server_id}."
+        log INFO "No session found for server ID: [${server_id}]."
         #zombie_serverIDs+=("$server_id")
         #return 0
     fi
@@ -207,31 +215,31 @@ check_session_status() {
 
     # Check session state and runtime hours
     if [[ "$runtime_hours" -lt "$TIME_LIMIT_HOURS" && "$state" == "running" ]]; then
-        log INFO "Session [${session_id}] owned by [${owner}] is [${state}]."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is [${state}]."
         active_serverIDs+=("$server_id")
     elif [[ "$runtime_hours" -ge "$TIME_LIMIT_HOURS" && "$state" == "running" ]]; then
-        log WARN "Session [${session_id}] owned by [${owner}] has been [${state}] for [${runtime_hours} hours], exceeding limit. To manually delete, issue the following command 'kubectl -n ${NAMESPACE} delete job ${job_name}"
+        log WARN "Session [${session_id}] in [${context_name}] owned by [${owner}] has been [${state}] for [${runtime_hours} hours], exceeding limit. To manually delete, issue the following command 'kubectl -n ${NAMESPACE} delete job ${job_name}"
         active_serverIDs+=("$server_id")
     elif [[ "$runtime_hours" -ge "$TIME_LIMIT_HOURS" && "$state" != "running" ]]; then
-        log INFO "Session [${session_id}] owned by [${owner}] is a zombie. Marked for deletion."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is a zombie. Marked for deletion."
         zombie_serverIDs+=("$server_id")
     elif [[ "$runtime_hours" -ge "$TIME_LIMIT_HOURS" && "$state" == "pending" ]]; then
-        log INFO "Session [${session_id}] owned by [${owner}] is [${state}] but exceeds runtime limit. Marked for deletion."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is [${state}] but exceeds runtime limit. Marked for deletion."
         zombie_serverIDs+=("$server_id")
     elif [[ "$runtime_hours" -lt "$TIME_LIMIT_HOURS" && "$state" == "pending" ]]; then
-        log INFO "Session [${session_id}] owned by [${owner}] is [${state}] but within time limit."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is [${state}] but within time limit."
         active_serverIDs+=("$server_id")
     elif [[ "$runtime_hours" -ge "$TIME_LIMIT_HOURS" && "$state" == "idle" ]]; then
-        log INFO "Session [${session_id}] owned by [${owner}] is [${state}] but exceeds runtime limit. Marked for deletion."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is [${state}] but exceeds runtime limit. Marked for deletion."
         zombie_serverIDs+=("$server_id")
     elif [[ "$runtime_hours" -lt "$TIME_LIMIT_HOURS" && "$state" == "idle" ]]; then
-        log INFO "Session [${session_id}] owned by [${owner}] is [${state}] but within time limit."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is [${state}] but within time limit."
         active_serverIDs+=("$server_id")
     elif [[ "$state" == "canceled" || "$state" == "error" || "$state" == "failed" || "$state" == "warning" || "$state" == "completed" ]]; then
-        log INFO "Session [${session_id}] owned by [${owner}] is marked for deletion due to its [${state}] state."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is marked for deletion due to its [${state}] state."
         zombie_serverIDs+=("$server_id")
     else
-        log INFO "Session [${session_id}] owned by [${owner}] is in an unrecognized state: $state. Marked for deletion."
+        log INFO "Session [${session_id}] in [${context_name}] owned by [${owner}] is in an unrecognized state: $state. Marked for deletion."
         zombie_serverIDs+=("$server_id")
     fi
 }
