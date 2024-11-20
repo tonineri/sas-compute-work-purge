@@ -31,7 +31,20 @@ log() {
     local level=$1
     shift
     local message="$@"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') | $level | sas-compute-work-purge-job | $message" | tee -a "$LOG_FILE" >&2
+    
+    # Get the current timestamp in ISO 8601 format.
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    
+    # Construct the JSON log entry.
+    local json_log=$(jq -n \
+        --arg timestamp "$timestamp" \
+        --arg level "$level" \
+        --arg job "sas-compute-work-purge-job" \
+        --arg message "$message" \
+        '{timestamp: $timestamp, level: $level, job: $job, message: $message}')
+    
+    # Output the JSON log entry to both console and log file.
+    echo "$json_log" | tee -a "$LOG_FILE" >&2
 }
 
 # Retry mechanism for transient failures.
