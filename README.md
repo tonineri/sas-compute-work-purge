@@ -107,7 +107,7 @@ curl -k -X POST "${VIYA_URL}/authorization/rules" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${BEARER_TOKEN}" \
   -d '{
-    "objectUri": "/compute/sessions/**",
+    "objectUri": "/compute/**",
     "clientId": "'"${CLIENT_ID}"'",
     "permission": ["read", "write", "execute"],
     "type": "grant"
