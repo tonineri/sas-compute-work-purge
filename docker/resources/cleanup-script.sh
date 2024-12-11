@@ -7,7 +7,7 @@ set -euo pipefail
 trap 'error_handler $LINENO $?' ERR
 
 # Set constants.
-LOG_FILE="/tmp/sas-cleanup-tool.log"
+LOG_FILE="/tmp/sas-compute-work-purge.log"
 K8S_API_URL="https://kubernetes.default.svc"
 K8S_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
