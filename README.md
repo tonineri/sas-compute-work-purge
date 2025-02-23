@@ -215,17 +215,17 @@ kubectl logs -f $(kubectl get pods --selector=job-name=sas-compute-work-purge-jo
 
 ### Demo Mode
 
-For the CronJob to perform dry-run instead of actually eliminating zombie Kubernetes Jobs or orphaned work directories, update the `image` parameter in the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml) with the `latest-demo` tag (example: `image: antonioneri/sas-compute-work-purge:latest-demo`) and apply the manifest.
+For the CronJob to perform dry-run instead of actually eliminating zombie Kubernetes Jobs or orphaned work directories, update the value for `image` in the [sas-compute-work-purge.yaml](sas-compute-work-purge.yaml). Example: `image: antonioneri/sas-compute-work-purge:latest-demo`) and apply the manifest.
 
 ```sh
-sed -i 's|antonioneri/sas-compute-work-purge:latest|antonioneri/sas-compute-work-purge:latest-demo|g' sas-compute-work-purge.yaml
+sed -i 's|ghcr.io/tonineri/sas-compute-work-purge:latest|antonioneri/sas-compute-work-purge:latest-demo|g' sas-compute-work-purge.yaml
 kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 ```
 
 To restore proper functionality, switch back to the original tag and apply the manifest:
 
 ```sh
-sed -i 's|antonioneri/sas-compute-work-purge:latest-demo|antonioneri/sas-compute-work-purge:latest|g' sas-compute-work-purge.yaml
+sed -i 's|antonioneri/sas-compute-work-purge:latest-demo|ghcr.io/tonineri/sas-compute-work-purge:latest|g' sas-compute-work-purge.yaml
 kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 ```
 
