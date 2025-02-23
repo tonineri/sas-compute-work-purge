@@ -1,8 +1,7 @@
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 LABEL maintainer="Antonio Neri <antoneri@proton.me>" \
-      description="SAS Viya - Compute Work Purge" \
-      org.opencontainers.image.source="https://github.com/tonineri/sas-compute-work-purge"
+      description="SAS Viya - Compute Work Purge"
 
 # Basic environment variables
 ENV LANG="en_US.UTF-8" \
