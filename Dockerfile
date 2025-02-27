@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5
 
 LABEL maintainer="Antonio Neri <antoneri@proton.me>" \
       description="SAS Viya - Compute Work Purge"
