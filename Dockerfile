@@ -9,6 +9,7 @@ ENV LANG="en_US.UTF-8" \
 
 # Install necessary packages: curl for HTTP requests and jq for JSON parsing
 RUN microdnf update -y && \
+    microdnf upgrade -y && \
     microdnf install -y jq findutils sudo && \
     microdnf clean all && \
     rm -rf /tmp/* /var/tmp/* /var/cache/dnf /var/cache/yum
