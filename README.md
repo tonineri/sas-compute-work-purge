@@ -6,11 +6,11 @@
 
 </div>
 
-![Divider](https://i.ibb.co/Rk1CXDML/divider.png
+![Divider](https://i.ibb.co/Rk1CXDML/divider.png)
 
 This repository contains a Kubernetes CronJob that automates the cleanup of inactive or old SAS Compute sessions and orphaned `saswork` directories in a SAS Viya environment.
 
-![Divider](https://i.ibb.co/Rk1CXDML/divider.png
+![Divider](https://i.ibb.co/Rk1CXDML/divider.png)
 
 ## Table of Contents
 
@@ -28,7 +28,7 @@ This repository contains a Kubernetes CronJob that automates the cleanup of inac
   - [Ad-hoc Execution](#ad-hoc-execution)
   - [Demo Mode](#demo-mode)
 
-![Divider](https://i.ibb.co/Rk1CXDML/divider.png
+![Divider](https://i.ibb.co/Rk1CXDML/divider.png)
 
 ## Overview
 
@@ -39,7 +39,7 @@ The `sas-compute-work-purge-job` Kubernetes CronJob:
 
 By default, the CronJob is scheduled to run daily at midnight, ensuring that unused resources are regularly cleaned up to optimize storage and session management.
 
-![Divider](https://i.ibb.co/Rk1CXDML/divider.png
+![Divider](https://i.ibb.co/Rk1CXDML/divider.png)
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ Before deploying the SAS Cleanup Tool, ensure you have the following prerequisit
 > [!IMPORTANT]  
 > It can be either a `hostPath` or a `persistentVolumeClaim` (PVC). By default, a `hostPath` is used.
 
-![Divider](https://i.ibb.co/Rk1CXDML/divider.png
+![Divider](https://i.ibb.co/Rk1CXDML/divider.png)
 
 ## Setup
 
@@ -191,7 +191,7 @@ Deploy the resources by applying the Kubernetes manifest:
 kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 ```
 
-![Divider](https://i.ibb.co/Rk1CXDML/divider.png
+![Divider](https://i.ibb.co/Rk1CXDML/divider.png)
 
 ## Usage
 
@@ -229,4 +229,4 @@ sed -i 's|antonioneri/sas-compute-work-purge:latest-demo|ghcr.io/tonineri/sas-co
 kubectl apply -f sas-compute-work-purge.yaml -n $VIYA_NS
 ```
 
-![Divider](https://i.ibb.co/Rk1CXDML/divider.png
+![Divider](https://i.ibb.co/Rk1CXDML/divider.png)
